@@ -2,6 +2,7 @@
 #include <ESP32Time.h>
 #include <ESPAsyncWebServer.h>
 #include <WiFi.h>
+#include <Wire.h>
 
 #include "SPIFFS.h"
 #include "time.h"
@@ -45,13 +46,17 @@ void fetchTimeOnline() {
   currentHour = rtc.getHour();
   currentMinute = rtc.getMinute();
 
-  Serial.println(rtc.getHour(true));
+  Serial.println(rtc.getHour());
   Serial.println(rtc.getMinute());
   Serial.println(rtc.getSecond());
+
+  previousDaySync = rtc.getDay();
 }
 
 void setup() {
   Serial.begin(115200);
+
+  Wire.begin();
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true)) {
@@ -84,18 +89,23 @@ void setup() {
   fetchTimeOnline();
 }
 
+void sendTimeToClockSlave() {}
+
 void loop() {
   if (rtc.getDay() != previousDaySync) {
     // if a day has passed sync the time with the servers again
     fetchTimeOnline();
   }
-  if (currentHour != rtc.getHour(false)) {
+
+  if (currentHour != rtc.getHour()) {
     // if the previous hour doesn't equal the current hour on display anymore
     Serial.println("next hour.");
+    currentHour = rtc.getHour();
   }
 
   if (currentMinute != rtc.getMinute()) {
     // if the previous minute doesn't equal the current minute on display
     Serial.println("next minute.");
+    currentMinute = rtc.getMinute();
   }
 }
