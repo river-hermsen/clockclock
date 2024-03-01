@@ -1,20 +1,24 @@
 #include <AsyncTCP.h>
 #include <ESP32Time.h>
 #include <ESPAsyncWebServer.h>
+#include <Preferences.h>
 #include <WiFi.h>
 #include <Wire.h>
 
 #include "SPIFFS.h"
 #include "time.h"
 
-const char *ssid = "EscapeFactoryWireless";
-const char *password = "T1m3T03$c@p3";
-String hostname = "clockclock";
+// ! Preferences
+Preferences preferences;
 
-// Time Variables
+// ! WIFI
+String hostname = "clockclock";
+unsigned long previousMillis = 0;
+const long timeOutWifi = 10000;
+
+// ! TIME VARIABLES
 int currentHour = 0;
 int currentMinute = 0;
-
 // Auto fetch time
 const char *ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 3600;
@@ -24,16 +28,62 @@ int previousDaySync = 0;
 ESP32Time rtc(daylightOffset_sec);
 struct tm timeinfo;
 
-// Create AsyncWebServer object on port 80
+// ! WEBSERVER
 AsyncWebServer server(80);
-
-// Replaces placeholder with LED state value
+// Replaces html placeholder with current time
 String processor(const String &var) {
   if (var == "TIME") {
     return (String(rtc.getHour(true)) + ":" + String(rtc.getMinute()) + ":" +
             String(rtc.getSecond()));
+  } else if (var == "SSID") {
   }
   return String();
+}
+
+void makeSoftAP() {
+  Serial.println("CREATING ACCESS POINT...");
+  WiFi.softAP("ClockClock", "clockclock");
+
+  IPAddress IP = WiFi.softAPIP();
+  Serial.print("AP IP address: ");
+  Serial.println(IP);
+}
+
+void tryConnToWifi() {
+  preferences.begin("wifiCreds", false);
+
+  String ssidPref = preferences.getString("ssid", "");
+  String paswdPref = preferences.getString("password", "");
+
+  if (ssidPref == "" || paswdPref == "") {
+    Serial.println("No values saved for ssid or password");
+  } else {
+    // Try to connect to wifi if creds are found in prefs
+    const char *ssid = ssidPref.c_str();
+    const char *password = paswdPref.c_str();
+    WiFi.begin(ssid, password);
+    Serial.println("Trying to connect to WiFi with SSID: " + String(ssid));
+    while (WiFi.status() != WL_CONNECTED) {
+      unsigned long currentMillis = millis();
+      if (currentMillis - previousMillis >= timeOutWifi) {
+        // Not connected to wifi, creating AP
+        Serial.println("NO ABLE TO CONNECT TO NETWORK");
+        makeSoftAP();
+        return;
+      }
+    }
+    Serial.println("Connected to WiFi with SSID: " + String(ssid));
+    Serial.print("IP is: ");
+    Serial.println(WiFi.localIP());
+  }
+  preferences.end();
+}
+
+void writeCredToPrefs(const char *ssid, const char *passwd) {
+  preferences.begin("wifiCreds", false);
+  preferences.putString("ssid", ssid);
+  preferences.putString("password", passwd);
+  preferences.end();
 }
 
 void fetchTimeOnline() {
@@ -46,32 +96,23 @@ void fetchTimeOnline() {
   currentHour = rtc.getHour();
   currentMinute = rtc.getMinute();
 
-  Serial.println(rtc.getHour());
-  Serial.println(rtc.getMinute());
-  Serial.println(rtc.getSecond());
-
   previousDaySync = rtc.getDay();
 }
 
 void setup() {
   Serial.begin(115200);
-
+  // I2C
   Wire.begin();
+
+  // INIT PREF
+  // writeCredToPrefs("EscapeFactoryWirelesss", "T1m3T03$c@p3");
+  tryConnToWifi();
 
   // Initialize SPIFFS
   if (!SPIFFS.begin(true)) {
     Serial.println("An Error has occurred while mounting SPIFFS");
     return;
   }
-
-  WiFi.begin(ssid, password);
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(1000);
-    Serial.println("Connecting to WiFi..");
-  }
-
-  // Print ESP32 Local IP Address
-  Serial.println(WiFi.localIP());
 
   // Route for root / web page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request) {
@@ -83,6 +124,26 @@ void setup() {
     request->send(SPIFFS, "/style.css", "text/css");
   });
 
+  // Fetch time from timeserver again
+  server.on("/refreshTime", HTTP_POST, [](AsyncWebServerRequest *request) {
+    fetchTimeOnline();
+    request->send(200, "text/plain", "Refreshing...");
+  });
+
+  // New WiFi Settings
+  server.on("/submitWifi", HTTP_POST, [](AsyncWebServerRequest *request) {
+    String userSsid;
+    String userPasswd;
+    userSsid = request->getParam("ssid", true)->value();
+    userPasswd = request->getParam("passwd", true)->value();
+    Serial.println(userSsid);
+    Serial.println(userPasswd);
+    writeCredToPrefs(userSsid.c_str(), userPasswd.c_str());
+    delay(1000);
+    ESP.restart();
+    request->send(200, "text/plain", "Rebooting... ");
+  });
+
   // Start server
   server.begin();
 
@@ -92,10 +153,10 @@ void setup() {
 void sendTimeToClockSlave() {}
 
 void loop() {
-  if (rtc.getDay() != previousDaySync) {
-    // if a day has passed sync the time with the servers again
-    fetchTimeOnline();
-  }
+  // if (rtc.getDay() != previousDaySync) {
+  //   // if a day has passed sync the time with the servers again
+  //   fetchTimeOnline();
+  // }
 
   if (currentHour != rtc.getHour()) {
     // if the previous hour doesn't equal the current hour on display anymore

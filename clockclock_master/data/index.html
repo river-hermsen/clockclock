@@ -7,28 +7,63 @@
     <link rel="stylesheet" type="text/css" href="style.css" />
   </head>
   <body>
-    <h1>CLOCK CLOCK 9</h1>
+    <h1>ClockClock</h1>
     <p>Huidige tijd: <strong> %TIME%</strong></p>
 
-    <div></div>
-    <div class="border-top">
-      Tijd automatisch instellen: <br />
-      <br />
-      <button type="button" id="autoTimeBtn">Klik hier!</button>
+    <div class="border-bottom">
+      <form action="/refreshTime" method="post">
+        <button class="input-btn" type="submit" id="autoTimeBtn">
+          Tijd opnieuw ophalen
+        </button>
+      </form>
     </div>
-    <script>
-      document.getElementById("autoTimeBtn").onclick = function () {
-        dateObj = new Date();
-        hours = (dateObj.getHours() < 10 ? "0" : "") + dateObj.getHours();
-        minutes = (dateObj.getMinutes() < 10 ? "0" : "") + dateObj.getMinutes();
-        seconds = (dateObj.getSeconds() < 10 ? "0" : "") + dateObj.getSeconds();
+    <div class="border-bottom">
+      <form
+        action="/submitWifi"
+        onsubmit="return validateWifiForm()"
+        method="post"
+      >
+        <h3>WiFi instellen:</h3>
+        <label for="ssid">SSID</label>
+        <input class="input-wifi" type="text" id="ssid" placeholder="%SSID%" />
+        <label for="passwd">PASSWORD</label>
+        <input class="input-wifi" type="password" id="passwd" />
+        <button class="input-btn" type="submit" id="saveWifi">Opslaan</button>
+      </form>
+    </div>
 
-        var xhr = new XMLHttpRequest();
-        xhr.open("POST", "/submitAuto", true);
-        xhr.setRequestHeader("Content-Type", "text/plain");
-        console.log(`${hours}:${minutes}:${seconds}`);
-        xhr.send(`${hours}:${minutes}:${seconds}`);
-      };
+    <script>
+      // document.getElementById("autoTimeBtn").onclick = function () {
+      //   dateObj = new Date();
+      //   hours = (dateObj.getHours() < 10 ? "0" : "") + dateObj.getHours();
+      //   minutes = (dateObj.getMinutes() < 10 ? "0" : "") + dateObj.getMinutes();
+      //   seconds = (dateObj.getSeconds() < 10 ? "0" : "") + dateObj.getSeconds();
+
+      //   var xhr = new XMLHttpRequest();
+      //   xhr.open("POST", "/submitAuto", true);
+      //   xhr.setRequestHeader("Content-Type", "text/plain");
+      //   console.log(`${hours}:${minutes}:${seconds}`);
+      //   xhr.send(`${hours}:${minutes}:${seconds}`);
+      // };
+
+      // document.getElementById("saveWifi").onclick = function () {
+      function validateWifiForm(params) {
+        let ssidVal = document.getElementById("ssid").value;
+        let passwdVal = document.getElementById("passwd").value;
+        if (ssidVal == "" || passwdVal == "") {
+          alert("De input velden zijn leeg");
+          return false;
+        }
+
+        if (
+          confirm("Weet je het zeker? De ClockClock wordt opnieuw opgstart!") ==
+          false
+        ) {
+          return false;
+        }
+
+        return true;
+      }
     </script>
   </body>
 </html>
