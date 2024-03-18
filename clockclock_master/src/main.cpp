@@ -150,14 +150,36 @@ void setup() {
   fetchTimeOnline();
 }
 
-void sendTimeToClockSlave() {}
+void sendMinToClockSlave() {
+  Serial.printf("Sending minute to clock slave: %i \n", rtc.getMinute());
+  Wire.beginTransmission(4);
+
+  uint8_t Buffer[2];
+  Buffer[0] = 109;  // 109 is char -> m
+  Buffer[1] = rtc.getMinute();
+  Wire.write(Buffer, 2);
+
+  Wire.endTransmission(true);
+}
+
+void sendHourToClockSlave() {
+  Serial.printf("Sending hour to clock slave: %i \n", rtc.getHour());
+  Wire.beginTransmission(4);
+
+  uint8_t Buffer[2];
+  Buffer[0] = 104;  // 104 is char -> h
+  Buffer[1] = rtc.getHour();
+  Wire.write(Buffer, 2);
+
+  Wire.endTransmission();
+}
 
 void loop() {
-  // if (rtc.getDay() != previousDaySync) {
-  //   // if a day has passed sync the time with the servers again
-  //   fetchTimeOnline();
-  // }
+  // Write message to the slave
 
+  delay(1000);
+  sendMinToClockSlave();
+  sendHourToClockSlave();
   if (currentHour != rtc.getHour()) {
     // if the previous hour doesn't equal the current hour on display anymore
     Serial.println("next hour.");
