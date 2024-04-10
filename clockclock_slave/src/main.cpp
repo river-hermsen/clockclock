@@ -5,7 +5,7 @@
 
 // BLINK LED VAR
 #define LED_PIN 9
-#define REED_HOUR_PIN 15
+
 unsigned long previousMillis = 0;
 const long interval = 250;
 int ledState = LOW;
@@ -57,7 +57,8 @@ void setup() {
   Serial.println("STARTING...");
   // LED SETUP
   pinMode(LED_PIN, OUTPUT);
-  pinMode(REED_HOUR_PIN, INPUT);
+  pinMode(HALL_HOUR_PIN, INPUT);
+  pinMode(HALL_MIN_PIN, INPUT);
   // STEPPER SETUP
   pinMode(hourMotorPins[0], OUTPUT);
   pinMode(hourMotorPins[1], OUTPUT);
@@ -96,6 +97,7 @@ void calibrateHands() {
   }
 
   if (minHallChanges(valMin)) {
+    digitalWrite(LED_PIN, HIGH);
     isMinCalibrated = true;
   }
 }
